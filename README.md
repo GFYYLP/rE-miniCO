@@ -1,10 +1,9 @@
 # rE:miniCO
 
-> *re·mini·co* — from "reminisce" and "eco": a small ecosystem of your own, reimagined.
-
 A 3D renderer and procedural ecosystem simulator built in C++20 and Vulkan 1.3. Terrain, vegetation, animals, water, and volumetric clouds, all simulated and rendered in a single cohesive scene, driven by a multithreaded engine and a suite of GLSL compute shaders.
 
 
+![gameplay](Animation.gif)
 ---
 
 
