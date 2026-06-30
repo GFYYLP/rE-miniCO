@@ -30,7 +30,7 @@ layout(std430, binding = 11) buffer PInstance{
 
 void main(){
     uint idx = gl_GlobalInvocationID.x;
-    if (idx >= ENTITY_COUNT || pInstances.age[idx] < 0.01) return;
+    if (idx >= ENTITY_COUNT || pInstances.age[idx] < 0.001) return;
 
     uint dna = pInstances.dna[idx];
     float age = pInstances.age[idx];

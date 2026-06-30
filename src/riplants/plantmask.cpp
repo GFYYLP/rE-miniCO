@@ -54,8 +54,8 @@ public:
         , m_seed(seed), m_N(size) {}
 
     void generate(std::array<float, BITMASK_RES * 4>& mask) {
-        generateFoliage(mask);
-        generateFlower(mask);
+        generateFoliage(mask);  //upper half
+        //generateFlower(mask);  //lower half
     }
 
 private:
@@ -63,9 +63,8 @@ private:
     unsigned int m_seed;
     int          m_N;
 
-    // --- leaf helpers ---
-
     static LeafShape makeLeafShape(float density, float height, float thickness, unsigned int seed) {
+        //deterministic rand
         auto seededRand = [seed](float min, float max, int offset) -> float {
             unsigned int s = seed + offset * 12345;
             s = (s ^ 61) ^ (s >> 16);
@@ -90,22 +89,29 @@ private:
     }
 
     static float leafSDF(glm::vec2 uv, const LeafShape& shape) {
-        float angle = std::atan2(uv.y, uv.x);
+        //polar coordinates
+        float angle = std::atan2(uv.y, uv.x);  
 
-        float sdf = glm::length(glm::vec2(uv.x * shape.aspectRatio, uv.y)) - shape.baseRadius;
+        //base shape
+        float sdf = glm::length(glm::vec2(uv.x * shape.aspectRatio, uv.y)) 
+                    - shape.baseRadius;
 
+        //taper at base and sharpen at tip
         float taperFactor = glm::smoothstep(-shape.baseRadius, shape.baseRadius * 0.3f, uv.y);
         sdf += (1.0f - taperFactor) * shape.taperStrength;
         float tipFactor = glm::smoothstep(shape.baseRadius * 0.5f, shape.baseRadius, uv.y);
         sdf += tipFactor * shape.tipSharpness * 0.4f;
 
-        if (shape.lobeCount > 0) {
-            float lobeAngle  = angle + PI;
+        //micro variations
+        if (shape.lobeCount > 0) {  //lobes/serrations
+            float lobeAngle  = angle + PI;  //shifts so lobes are symmetric
             float lobeMod    = std::sin(lobeAngle * shape.lobeCount * 0.5f);
+
+             //only applies lobes to the sides/top, not the base
             float lobeRegion = glm::smoothstep(-shape.baseRadius * 0.3f, shape.baseRadius, uv.y);
             sdf += lobeMod * shape.lobeDepth * lobeRegion;
         }
-        if (shape.waviness > 0.0f) {
+        if (shape.waviness > 0.0f) {  //waviness to edges
             float waveFreq = 8.0f + shape.lobeCount * 2.0f;
             float wave = std::sin(angle * waveFreq + uv.y * 3.0f) * shape.waviness * 0.1f;
             sdf += wave * glm::smoothstep(-shape.baseRadius, shape.baseRadius * 0.8f, uv.y);
@@ -119,20 +125,25 @@ private:
     }
 
     static glm::vec3 leafNormal(glm::vec2 leafUV, const LeafShape& shape, const glm::vec3& baseNormal) {
+        //curvature based on position
         float r           = glm::length(leafUV);
         float normalizedR = glm::clamp(r / shape.baseRadius, 0.0f, 1.0f);
-        float curvatureStrength = normalizedR * (1.0f - shape.tipSharpness * 0.3f);
+        float curvatureStrength = normalizedR * (1.0f - shape.tipSharpness * 0.3f); //curve more at edges
 
+        //curvature direction
         glm::vec3 curvature = glm::vec3(
             leafUV.x * curvatureStrength * 0.6f,
             leafUV.y * curvatureStrength * 0.4f,
             0.0f
         );
-        if (shape.lobeCount > 2) {
-            float angle       = std::atan2(leafUV.y, leafUV.x);
-            float veinPattern = std::sin(angle * shape.lobeCount * 0.5f) * 0.15f;
-            curvature.z += veinPattern * normalizedR;
-        }
+
+        //vein-like ridges
+        // if (shape.lobeCount > 2) {
+        //     float angle       = std::atan2(leafUV.y, leafUV.x);
+        //     float veinPattern = std::sin(angle * shape.lobeCount * 0.5f) * 0.15f;
+        //     curvature.z += veinPattern * normalizedR;
+        // }
+
         return glm::normalize(baseNormal + curvature);
     }
 
@@ -146,18 +157,20 @@ private:
         const float leafScaleBase = m_thickness * 1.0f;
 
         Leaf leaf;
-        if (mode == Fan) {
+
+        //center placement and rotation based on mode
+        if (mode == Fan) {  //clustered towards top with upward bias
             leaf.center = glm::vec2(
                 C::rng.getRandomValue(-0.3f, 0.3f),
                 C::rng.getRandomValue(-0.2f, 0.8f)
             );
-        } else if (mode == Radial) {
+        } else if (mode == Radial) {  //evenly spaced around center with some randomness
             float angle = (float(hierarchyLevel) / float(numLeaves)) * 2.0f * PI
                         + C::rng.getRandomValue(-0.2f, 0.2f);
             float r = C::rng.getRandomValue(0.2f, 0.7f);
             leaf.center   = glm::vec2(std::cos(angle), std::sin(angle)) * r * 0.6f;
-            leaf.rotation = angle;
-        } else {
+            leaf.rotation = angle;  // leaf faces radially
+        } else {  //(scatter) random placement with upward bias
             float spreadFactor = glm::mix(0.8f, 0.5f, m_density);
             leaf.center = glm::vec2(
                 C::rng.getRandomValue(-40.0f * spreadFactor, 40.0f * spreadFactor) / 60.0f,
@@ -172,9 +185,10 @@ private:
         int variationIdx = C::rng.getRandomValue(0, (int)variations.size() - 1);
         leaf.shape = variations[variationIdx];
 
+        //normal direction
         float theta = C::rng.getRandomValue(0.0f, 2.0f * PI);
         float phi   = C::rng.getRandomValue(0.0f, PI / 2.0f);
-        leaf.normal = glm::vec3(
+        leaf.normal = glm::vec3(   //conversion from spherical coordinates to a unit vector
             std::sin(phi) * std::cos(theta),
             std::sin(phi) * std::sin(theta),
             std::cos(phi)
@@ -200,6 +214,8 @@ private:
         for (int i = 0; i < numLeaves; ++i) {
             leaves.push_back(makeLeaf(i, variations));
         }
+
+        //sorts back to front for proper alpha blending
         std::sort(leaves.begin(), leaves.end(),
             [](const Leaf& a, const Leaf& b) { return a.depth < b.depth; });
         return leaves;
@@ -213,15 +229,19 @@ private:
 
             for (int y = 0; y < m_N; ++y) {
                 for (int x = 0; x < m_N; ++x) {
+                    //pixel center in [-1, 1] space
                     glm::vec2 uv     = (glm::vec2(x + 0.5f, y + 0.5f) / float(m_N)) * 2.0f - 1.0f;
                     glm::vec2 border = glm::max(glm::abs(uv) - 0.7f, glm::vec2(0.0f));
-                    float vignette   = 1.0f - glm::smoothstep(0.0f, 0.5f, glm::length(border));
+                    float vignette   = 1.0f - glm::smoothstep(0.0f, 0.5f, glm::length(border)); //fade out at edges 
 
+                    //translates to leaf-centered space
                     glm::vec2 offset  = uv - leaf.center;
                     glm::vec2 rotated = glm::vec2(
                         offset.x * cosR + offset.y * sinR,
                        -offset.x * sinR + offset.y * cosR
                     );
+
+                    //scales to local coords
                     glm::vec2 leafUV = rotated / (leaf.scale * 3.0f);
 
                     float d     = leafSDF(leafUV, leaf.shape);
@@ -231,6 +251,8 @@ private:
                         int idx = (y * m_N + x) * 4;
 
                         glm::vec3 n    = leafNormal(leafUV, leaf.shape, leaf.normal);
+
+                        //alpha blend
                         float srcA     = alpha;
                         float dstA     = mask[idx];
                         float outA     = srcA + dstA * (1.0f - srcA);
@@ -254,73 +276,6 @@ private:
         auto variations = buildVariations();
         auto leaves     = placeLeaves(variations);
         rasterizeFoliage(leaves, mask);
-    }
-
-    // --- flower helpers ---
-
-    static FlowerShape makeFlowerShape(float density, float height, float thickness) {
-        FlowerShape shape;
-        shape.petalCount   = int(glm::mix(3.0f, 12.0f, height));
-        shape.petalLength  = glm::mix(0.5f, 1.0f, thickness);
-        shape.petalWidth   = glm::mix(0.3f, 0.7f, thickness);
-        shape.petalCurl    = glm::mix(0.2f, 0.8f, density);
-        shape.centerSize   = glm::mix(0.3f, 0.1f, thickness);
-        shape.ruffleAmount = (density + height) * 0.3f;
-        return shape;
-    }
-
-    static float petalSDF(glm::vec2 uv, const FlowerShape& shape) {
-        glm::vec2 p = uv;
-        p.y += shape.centerSize;
-        p.x *= (1.0f / shape.petalWidth);
-
-        float tip         = glm::smoothstep(shape.petalLength * 0.9f, shape.centerSize * 0.2f, p.y);
-        float ruffleFreq  = 5.0f + shape.ruffleAmount * 3.0f;
-        float ruffle      = std::sin(p.y * ruffleFreq) * shape.ruffleAmount * 0.05f;
-
-        return glm::length(p) - glm::mix(shape.petalLength * 0.7f, shape.petalLength * 0.3f, tip) + ruffle;
-    }
-
-    static float flowerSDF(glm::vec2 uv, const FlowerShape& shape) {
-        float a = glm::atan(uv.y, uv.x);
-        float r = glm::length(uv);
-
-        if (r < shape.centerSize) return r - shape.centerSize;
-
-        float sector  = 2.0f * PI / shape.petalCount;
-        float localA  = glm::mod(a + sector * 0.5f, sector) - sector * 0.5f;
-        glm::vec2 petalUV = glm::vec2(std::cos(localA) * r, std::sin(localA) * r);
-
-        return petalSDF(petalUV, shape);
-    }
-
-    void generateFlower(std::array<float, BITMASK_RES * 4>& mask) {
-        FlowerShape shape = makeFlowerShape(m_density, m_height, m_thickness);
-
-        for (int y = 0; y < m_N; ++y) {
-            for (int x = 0; x < m_N; ++x) {
-                glm::vec2 uv = (glm::vec2(x + 0.5f, y + 0.5f) / float(m_N)) * 2.0f - 1.0f;
-
-                float d     = flowerSDF(uv, shape);
-                float alpha = glm::smoothstep(0.02f, -0.02f, d);
-
-                if (alpha > 0.01f) {
-                    int idx = ((y + m_N) * m_N + x) * 4;
-
-                    float r           = glm::length(uv);
-                    float curlFactor  = shape.petalCurl * r;
-                    glm::vec3 n       = glm::normalize(glm::vec3(
-                        glm::normalize(uv) * -curlFactor,
-                        1.0f - curlFactor * 0.5f
-                    ));
-
-                    mask[idx]   = alpha;
-                    mask[idx+1] = curlFactor;
-                    mask[idx+2] = n.x * 0.5f + 0.5f;
-                    mask[idx+3] = n.y * 0.5f + 0.5f;
-                }
-            }
-        }
     }
 };
 

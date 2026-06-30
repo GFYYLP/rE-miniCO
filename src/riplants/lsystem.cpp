@@ -82,7 +82,7 @@ private:
     void walk() {
         for (int i = 0; i < (int)m_lsystem.size(); ++i) {
             char c = m_lsystem[i];
-            if (c == 'F') {
+            if (c == 'F') {   //trunk/branch
                 if (m_transformCount >= E::transformCount) {
                     fmt::println("Transform limit reached!");
                     break;
@@ -102,6 +102,7 @@ private:
                     m_parentTransformList[m_transformCount]   = m_transformList[parentIdx];
                     m_parentTranslationList[m_transformCount] = m_translationList[parentIdx];
                 } else {
+                    //root has no parent
                     m_parentTransformList[m_transformCount] = glm::mat3x4(
                         glm::vec4(1, 0, 0, 1.0f),
                         glm::vec4(0, 1, 0, 0.0f),
@@ -111,10 +112,10 @@ private:
                 }
 
                 ++m_transformCount;
-                m_turtle.position += orients.forward * m_turtle.thickness * 10.0f;
+                m_turtle.position += orients.forward * m_turtle.thickness * 10.0f;  //moves forward
                 m_turtle.taperFactor -= (1.0f - 0.8f);
             }
-            else if (c == 'f') {
+            else if (c == 'f') {  //terminal branch
                 auto orients = calculateOrient(m_turtle.yaw, 0.0f);
                 m_leafList.push_back({
                     glm::mat3x4(
@@ -128,10 +129,10 @@ private:
                 m_turtle.pitch += glm::radians((float)C::rng.getRandomValue(-m_branchAngle, m_branchAngle));
                 m_turtle.yaw   += glm::radians((float)C::rng.getRandomValue(-m_branchAngle, m_branchAngle));
             }
-            else if (c == '^') {
+            else if (c == '^') {  //foliage
                 float density = m_turtle.thickness;
                 int instanceCount = glm::clamp(int(density * 40.0f + 10.0f), 5, 80);
-                float spread = glm::mix(15.0f, 3.0f, density);
+                float spread = glm::mix(15.0f, 3.0f, density);  //tighter cluster at higher density
 
                 for (int j = 0; j < instanceCount; ++j) {
                     float quadYaw   = m_turtle.yaw   + glm::radians(C::rng.getRandomValue(-30.0f, 30.0f));
@@ -155,46 +156,47 @@ private:
                         ),
                         glm::vec4(
                             m_turtle.position.x + offset.x,
-                            offset.y - 30.0f,
+                            offset.y - 30.0f,  //lower foliage (center-heavy mask) to minimize detachment from parent
                             m_turtle.position.z + offset.z,
                             7.0f
                         )
                     });
                 }
             }
-            else if (c == '[') {
-                if (m_transformCount > 0) m_parentStack.push(m_transformCount - 1);
+            else if (c == '[') { //push
+                if (m_transformCount > 0) m_parentStack.push(m_transformCount - 1);  //current segment becomes parent
                 m_stateStack.push(m_turtle);
                 ++m_turtle.generationLevel;
                 m_turtle.thickness *= 0.65f;
             }
-            else if (c == ']') {
+            else if (c == ']') {  //pop
                 if (!m_parentStack.empty()) m_parentStack.pop();
                 if (!m_stateStack.empty()) {
                     m_turtle = m_stateStack.top();
                     m_stateStack.pop();
                 }
             }
-            else if (c == 'L') {
+            else if (c == 'L') { //golden spiral divergence
                 constexpr float GOLDEN_ANGLE = 137.508f;
                 m_turtle.yaw   += glm::radians(GOLDEN_ANGLE * m_lCounter++);
                 m_turtle.pitch += glm::radians(m_branchAngle * 0.9f);
             }
-            else if (c == 'A') {
+            else if (c == 'A') {  //alternating
                 m_turtle.alternateSide = 1 - m_turtle.alternateSide;
                 m_turtle.yaw   += glm::radians((m_turtle.alternateSide ? 1.0f : -1.0f) * 90.0f);
                 m_turtle.pitch += glm::radians(m_branchAngle);
             }
-            else if (c == 'V') {
+            else if (c == 'V') {  //vertical bias
                 m_turtle.pitch *= 0.7f * (C::rng.getRandomValue(70, 150) / 100.0f);
             }
-            else if (c == 'D') {
+            else if (c == 'D') {  //drooping
                 m_turtle.pitch += glm::radians(m_branchAngle * 1.5f);
             }
         }
     }
 
     void flushLeaves() {
+        //builds coherent transform buffer
         for (const auto& leaf : m_leafList) {
             if (m_transformCount >= E::transformCount) {
                 fmt::println("Transform limit reached!");

@@ -6,7 +6,7 @@
 #include <array>
 #include <cmath>
 #include <unordered_map>
-#include <cstddef>  // for offsetof
+#include <cstddef>
 #include <queue>
 
 #include <glm/glm.hpp>
@@ -21,11 +21,11 @@
 
 
 struct MaskPixels {
-    uint32_t alpha;              // offset 0
-    uint32_t _pad0;              // offset 4 
-    uint32_t _pad1;              // offset 8
-    uint32_t _pad2;              // offset 12  (these 3 pad fields will later be translated to flower data)
-    glm::vec4 normalHint;        // offset 16
+    uint32_t alpha;              
+    uint32_t _pad0;            
+    uint32_t _pad1;              
+    uint32_t _pad2; //these 3 pad fields will later be translated to flower data)
+    glm::vec4 normalHint;       
 };
 struct PDNA{
     float hue[DNA_COUNT];
@@ -41,7 +41,6 @@ struct PMatrix{
     glm::vec4 worldOffset[PLANT_COUNT];
 };
 
-//TODO: pad floats to 16-bit, do some timing to see if the added memory footprint is worth the performance gain
 struct PInstance{
     uint32_t id[PLANT_COUNT];
     float energy[PLANT_COUNT];
@@ -51,20 +50,8 @@ struct PInstance{
     glm::vec4 position[PLANT_COUNT];   //world-space transformation 
 };
 
-
-enum PMutables{
-    wood, lobed,                     //light pressure (excess fertility)
-    carnivore, parasitic,            //fertility pressure (excess light)
-    explosive, flowering, biolumi,   //reproduction (excess energy)
-    mimicry, thorny, toxic,          //self-defense     //purple/yellow tinges for toxicity 
-
-    max_mutables,
-};
-
-
 struct PDNACPU{
     int m_id = 0;
-    int m_type;
     std::string m_lsystem; 
     std::string m_axiom;
 
@@ -72,45 +59,23 @@ struct PDNACPU{
     float m_hue;
     float m_sustainCost;
     const int m_bitmaskSize = BITMASK_WIDTH;
-    //MaskPixels m_leafMasks[BITMASK_RES] = {};
-    //PDNA m_gpuDNA = {};
     std::array<float, BITMASK_RES*4> m_mask = {};
     float m_height;      // target adult height in arbitrary units
     float m_thickness;    // trunk diameter (lower for herbs, higher for trees)
     float m_density;      // branch/leaves frequency
     int m_lifespan;        // lifespan in cycles/frames
-    float m_ruleVerticality=1.0f;  //ensure height don't grow disproportionately for plants that generate a lot of trunk Fs
-    std::array<int, PMutables::max_mutables> m_mutateBias = {};
+    float m_ruleVerticality=1.0f;  //ensure height doesn't grow disproportionately for plants that generate a lot of trunk Fs
+    //std::array<int, PMutables::max_mutables> m_mutateBias = {};
     //Sound sound;
 
-    PDNACPU(const int& id = 0, const int& m_type = 0,
+    PDNACPU(const int& id = 0, 
                     const std::string& rule = "FR[RRFR[RF]]", const std::string& axiom = "F",
-                    const float& height = 1.0f, const float& thickness = 2.0f, const float& density = 7.0f,
-                    const std::array<int, PMutables::max_mutables>& mutateBias = {})
-        : m_id(id), m_type(m_type),
-        m_rule(rule), m_axiom(axiom),
-        m_height(height), m_thickness(thickness), m_density(density),
-        m_mutateBias(mutateBias)
+                    const float& height = 1.0f, const float& thickness = 2.0f, const float& density = 7.0f)
+        : m_id(id), m_rule(rule), m_axiom(axiom),
+        m_height(height), m_thickness(thickness), m_density(density)
     {
         std::string baseRule = rule;
         std::string baseAxiom = axiom;
-        switch(m_type){
-            case 0:{ //tree
-                break;
-            }
-            case 1:{ //low grass
-                baseRule = "";
-                break;
-            }
-            case 2:{ //herb
-                // baseRule = "^";
-                // baseAxiom = "^";
-                break;
-            }
-            default:{
-                break;
-            }
-        }
 
         //assesses mutation biases (TO BE IMPLEMENTED)
 

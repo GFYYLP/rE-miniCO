@@ -73,10 +73,11 @@ std::string genRule(float height, float thickness, float density, float apical, 
         }
     }
 
-    //apical crowning - more likely with taller plants, but can be overridden by high density/thickness which favors bushier branching instead
+    //apical crowning is more likely with taller plants
+    //but can be overridden by high density/thickness which favors bushier branching instead
     if (apical > 0.65f && height > 0.7f) {
 
-        //extra vertical growth before terminal branches to create a more pronounced crown, especially for taller plants
+        //extra vertical growth before terminal branches to create a more pronounced crown
         int crownRise = glm::clamp(int(height * 2.0f), 1, 3);
         for (int i = 0; i < crownRise; ++i) {
             rule += "F";
@@ -109,9 +110,9 @@ void PDNACPU::generateBranch() {
     m_axiom   = "F";
     m_lsystem = m_axiom;
 
-    //constexpr int MAX_ITERATIONS   = 3;
     int maxDepth     = glm::clamp((int)(m_height * 0.5f + 2.0f), 3, 6);  
     
+    //strategically trims rule iterating to optimize transform budget
     float branchFactor  = glm::clamp(m_density * m_height, 0.0f, 1.0f);
     int transformBudget = (int)glm::mix(80.0f, float(TRANSFORM_COUNT - 50), branchFactor);
     int maxIterations = glm::clamp(int(m_height * 3.0f + 1.0f), 1, 3);
@@ -142,7 +143,7 @@ void PDNACPU::generateBranch() {
 
         m_lsystem = next;
 
-        // safety net only
+        //safety net
         int fCount = std::count(m_lsystem.begin(), m_lsystem.end(), 'F');
         if (fCount > transformBudget) {
             fmt::println("PDNA #{} - safety net hit ({} F) at iter {}", m_id, fCount, iteration + 1);
@@ -168,12 +169,12 @@ float pigmentCostCurve(float hueDeg){
     float h = glm::radians(hueDeg);
     float cost = 1.0;
 
-    // EASY ZONES - slightly reduced multipliers for subtler effect
+    //slightly reduced multipliers for subtler effect
     cost -= 0.35 * exp(-glm::pow(angleDist(h, glm::radians(100.0f)),2) / glm::pow(glm::radians(40.0f),2));
     cost -= 0.25 * exp(-glm::pow(angleDist(h, glm::radians(10.0f)),2) / glm::pow(glm::radians(35.0f),2));
     cost -= 0.20 * exp(-glm::pow(angleDist(h, glm::radians(320.0f)),2) / glm::pow(glm::radians(30.0f),2));
 
-    // HARD ZONES
+    //rarer zones
     cost += 0.5 * exp(-glm::pow(angleDist(h, glm::radians(240.0f)),2) / glm::pow(glm::radians(20.0f),2));
     cost += 0.35 * exp(-glm::pow(angleDist(h, glm::radians(190.0f)),2) / glm::pow(glm::radians(18.0f),2));
 
@@ -181,31 +182,14 @@ float pigmentCostCurve(float hueDeg){
 }
 
 
-// float PigmentStabilityCurve(float hueDeg)
-// {
-//     float cost = PigmentCostCurve(hueDeg);
-
-//     // Convert cost into stability
-//     // High cost → low stability
-//     float stability = 1.0 / (1.0 + 2.5 * cost);
-
-//     // Clamp to prevent extremes
-//     return clamp(stability, 0.1, 1.0);
-// }
-
-
-
-
 void PDNACPU::generateColor(){
     float h;
     do {
         h = C::rng.getRandomValue(0, 360);
     } while (C::rng.getRandomValue(0,1) > 1.0 / pigmentCostCurve(h));
-    m_hue = h;
-    // dnaHue += RandomGaussian() * mutationRate / stability;
-    // dnaHue = fmod(dnaHue + 360.0, 360.0); 
+    m_hue = h; 
 
     m_sustainCost = m_height + m_thickness + m_density + pigmentCostCurve(m_hue);
-    //m_sustainCost *= 0.1f;
+
     fmt::println("PDNA #{} sustainCost: {}", m_id, m_sustainCost);
 }
