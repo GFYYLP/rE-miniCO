@@ -5,8 +5,8 @@ A 3D renderer and procedural ecosystem simulator built in C++20 and Vulkan 1.3. 
 
 This repository contains a representative selection of the codebase.
 
-![gameplay](Gameplay.gif)
-*Everything displayed is code-generated, effectively no hand-authoring
+![gameplay](Animation.gif)
+> Everything displayed is code-generated, effectively no hand-authoring
 
 ---
 
